@@ -91,7 +91,6 @@ app.post('/api/inventario/modificar', async (req, res) => {
     try {
         const { nombre, cantidad, operacion } = req.body;
 
-        // Buscar el producto por nombre
         const { data: producto, error: searchError } = await supabase
             .from('inventario')
             .select('*')
@@ -106,7 +105,6 @@ app.post('/api/inventario/modificar', async (req, res) => {
         if (operacion === 'sumar') nuevoStock += parseInt(cantidad, 10);
         if (operacion === 'restar') nuevoStock -= parseInt(cantidad, 10);
 
-        // Actualizar el stock calculado
         const { error: updateError } = await supabase
             .from('inventario')
             .update({ cantidad: nuevoStock })
@@ -294,7 +292,7 @@ app.use((err, req, res, next) => {
 });
 
 // ==========================================
-// EXPORTACIÓN PARA VERCEL (CORREGIDO)
+// EXPORTACIÓN PARA VERCEL (ESTO ES LO QUE FALTABA)
 // ==========================================
 module.exports = app;
 
