@@ -17,13 +17,36 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-    console.error("❌ ERROR FATAL: No se encontraron las variables SUPABASE_URL y/o SUPABASE_SERVICE_KEY en las variables de entorno.");
+    console.error("❌ ERROR FATAL: No se encontraron las variables SUPABASE_URL y/o SUPABASE_SERVICE_KEY en Vercel.");
+    throw new Error("Faltan variables de entorno críticas para conectar con Supabase.");
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Servir archivos HTML estáticos (administracion.html, clientes.html, etc.)
 app.use(express.static(path.join(__dirname)));
+
+// ==========================================
+// MAPEO camelCase (frontend) <-> snake_case (Supabase)
+// ==========================================
+function inventarioToDB(body) {
+    return {
+        nombre: body.nombre,
+        cantidad: body.cantidad,
+        bloqueado: body.bloqueado,
+        hora_bloqueo: body.horaBloqueo ?? null
+    };
+}
+
+function inventarioFromDB(row) {
+    return {
+        id: row.id,
+        nombre: row.nombre,
+        cantidad: row.cantidad,
+        bloqueado: row.bloqueado,
+        horaBloqueo: row.hora_bloqueo
+    };
+}
 
 // ==========================================
 // RUTAS DE INVENTARIO
@@ -35,7 +58,7 @@ app.get('/api/inventario', async (req, res) => {
             .select('*');
 
         if (error) throw error;
-        res.status(200).json(data);
+        res.status(200).json(data.map(inventarioFromDB));
     } catch (error) {
         console.error("Error al obtener inventario:", error.message);
         res.status(500).json({ error: "Error interno al leer inventario" });
@@ -45,15 +68,15 @@ app.get('/api/inventario', async (req, res) => {
 app.post('/api/inventario', async (req, res) => {
     try {
         const { nombre, cantidad } = req.body;
-        
+
         const { data, error } = await supabase
             .from('inventario')
-            .insert([{ 
-                nombre, 
-                cantidad: cantidad || 0, 
-                bloqueado: false, 
-                horaBloqueo: null 
-            }])
+            .insert([inventarioToDB({
+                nombre,
+                cantidad: cantidad || 0,
+                bloqueado: false,
+                horaBloqueo: null
+            })])
             .select();
 
         if (error) throw error;
@@ -103,7 +126,7 @@ app.post('/api/inventario/bloquear', async (req, res) => {
 
         const { data, error } = await supabase
             .from('inventario')
-            .update({ bloqueado, horaBloqueo })
+            .update({ bloqueado, hora_bloqueo: horaBloqueo })
             .eq('nombre', nombre)
             .select();
 
@@ -190,7 +213,9 @@ app.get('/api/cuentas', async (req, res) => {
 app.put('/api/cuentas/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const datosAActualizar = req.body;
+        const { notaAdmin, ...resto } = req.body;
+        const datosAActualizar = { ...resto };
+        if (notaAdmin !== undefined) datosAActualizar.nota_admin = notaAdmin;
 
         const { data, error } = await supabase
             .from('pedidos')
@@ -236,13 +261,13 @@ app.get('/api/comprobantes/:id', async (req, res) => {
 
         const { data, error } = await supabase
             .from('pedidos')
-            .select('comprobanteAdjunto')
+            .select('comprobante_adjunto')
             .eq('id', id)
             .maybeSingle();
 
         if (error || !data) return res.status(404).json({ error: "No encontrado" });
 
-        res.status(200).json({ imagen: data.comprobanteAdjunto || null });
+        res.status(200).json({ imagen: data.comprobante_adjunto || null });
     } catch (error) {
         console.error("Error al obtener comprobante:", error.message);
         res.status(500).json({ error: "Error al cargar imagen" });
@@ -268,13 +293,15 @@ app.use((err, req, res, next) => {
     res.status(500).json({ error: "Error interno del servidor" });
 });
 
-// Exportar app para entorno Serverless / Vercel
+// ==========================================
+// EXPORTACIÓN PARA VERCEL (CORREGIDO)
+// ==========================================
 module.exports = app;
 
-// Escuchar servidor en entorno local o producción tradicional
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-    console.log(`✅ Servidor Supabase corriendo en el puerto ${port}`);
-});
-
-
+// Escuchar servidor SOLO en entorno local (tu PC), NO en Vercel
+if (require.main === module) {
+    const port = process.env.PORT || 3000;
+    app.listen(port, () => {
+        console.log(`✅ Servidor Supabase corriendo en el puerto ${port}`);
+    });
+}
