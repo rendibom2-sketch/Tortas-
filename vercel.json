@@ -1,27 +1,10 @@
 {
   "version": 2,
   "builds": [
-    {
-      "src": "app.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "**",
-      "use": "@vercel/static"
-    }
+    { "src": "app.js", "use": "@vercel/node" }
   ],
   "routes": [
-    {
-      "src": "/",
-      "dest": "/comandero.html"
-    },
-    {
-      "src": "/api/(.*)",
-      "dest": "/app.js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
-    }
+    { "src": "/api/(.*)", "dest": "/app.js" },
+    { "src": "/(.*)", "dest": "/$1" }
   ]
 }
